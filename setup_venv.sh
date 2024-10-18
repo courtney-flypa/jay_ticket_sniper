@@ -7,7 +7,7 @@ python3 -m venv ticket_bot_env
 source ticket_bot_env/bin/activate
 
 # 安裝所需套件
-pip install selenium
+pip install -r requirements.txt
 
 # 創建 requirements.txt
 pip freeze > requirements.txt

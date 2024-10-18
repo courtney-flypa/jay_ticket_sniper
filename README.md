@@ -23,16 +23,6 @@ chmod +x setup_venv.sh
 ./setup_venv.sh
 ```
 
-3. 激活虛擬環境：
-```bash
-source ticket_bot_env/bin/activate
-```
-
-4. 安裝依賴：
-```bash
-pip install -r requirements.txt
-```
-
 ## 使用方法
 
 1. 確保您已經開啟 Chrome 瀏覽器，並使用遠程調試模式。在命令行中運行以下命令：

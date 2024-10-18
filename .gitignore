@@ -1,0 +1,79 @@
+# Python 虛擬環境
+ticket_bot_env/
+venv/
+ENV/
+
+# Python 編譯文件
+*.pyc
+__pycache__/
+*.pyo
+*.pyd
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# 日誌文件
+*.log
+
+# 單元測試 / 覆蓋率報告
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# 環境文件
+.env
+.venv
+env/
+
+# IDE 相關文件
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 操作系統生成的文件
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# 專案特定文件（根據需要添加）
+# config.ini
+# secrets.json
+
+# 其他
+*.bak
+*.tmp
+*.temp
+
+# 圖片
+captcha.png
+error_screenshot.png

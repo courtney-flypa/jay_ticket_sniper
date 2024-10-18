@@ -4,9 +4,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException, WebDriverException, NoSuchElementException, StaleElementReferenceException
-from PIL import Image
-import pytesseract
+from selenium.common.exceptions import WebDriverException
 from selenium.webdriver.support.ui import Select
 from selenium.webdriver.common.action_chains import ActionChains
 import ddddocr
@@ -43,65 +41,58 @@ class TicketBot:
             print(f"點擊元素時發生錯誤: {e}")
             return False
 
-    def select_first_available_ticket(self):
+    def select_best_ticket(self):
         try:
             print("開始選擇票種...")
             WebDriverWait(self.driver, 60).until(EC.presence_of_element_located((By.CLASS_NAME, "zone.area-list")))
-            print("區域列表已加載")
-
             available_tickets = self.driver.find_elements(By.CSS_SELECTOR, ".select_form_a a")
             print(f"找到 {len(available_tickets)} 個可選擇的票種")
 
-            # 創建一個列表，存儲每個票種及其剩餘票數
-            ticket_info = []
-            for ticket in available_tickets:
-                ticket_text = ticket.text
-                remaining_tickets = int(''.join(filter(str.isdigit, ticket_text.split('剩餘')[-1])))
-                if remaining_tickets > 0:
-                    ticket_info.append((ticket, remaining_tickets))
+            ticket_info = [(ticket, int(''.join(filter(str.isdigit, ticket.text.split('剩餘')[-1]))))
+                           for ticket in available_tickets if int(''.join(filter(str.isdigit, ticket.text.split('剩餘')[-1]))) > 0]
 
             if ticket_info:
-                # 選擇剩餘票數最多的票種
                 best_ticket, max_remaining = max(ticket_info, key=lambda x: x[1])
                 print(f"選擇票種: {best_ticket.text}，剩餘票數: {max_remaining}")
-                self.click_ticket(best_ticket)
-                return self.select_quantity(1)  # 選擇 1 張票
+                return best_ticket
             else:
                 print("沒有找到可用的票種")
-                return False
+                return None
         except Exception as e:
             print(f"選擇票種時發生錯誤: {e}")
-            return False
+            return None
 
     def click_ticket(self, ticket):
         self.driver.execute_script("arguments[0].scrollIntoView(true);", ticket)
         time.sleep(5)
 
-        for click_method in [ticket.click, lambda: self.driver.execute_script("arguments[0].click();", ticket), lambda: ActionChains(self.driver).move_to_element(ticket).click().perform()]:
+        click_methods = [
+            ticket.click,
+            lambda: self.driver.execute_script("arguments[0].click();", ticket),
+            lambda: ActionChains(self.driver).move_to_element(ticket).click().perform()
+        ]
+
+        for click_method in click_methods:
             try:
                 click_method()
                 print("已點擊票種")
                 time.sleep(10)
-                return
+                return True
             except Exception as e:
                 print(f"點擊方法失敗: {e}")
+        
+        return False
 
     def select_quantity(self, desired_quantity=1):
         try:
             select_element = WebDriverWait(self.driver, 30).until(
                 EC.presence_of_element_located((By.CSS_SELECTOR, "select[id^='TicketForm_ticketPrice_']"))
             )
-            print("找到張數選擇下拉框")
-            
             select = Select(select_element)
             options = select.options
-            print(f"可選擇的張數選項: {[option.text for option in options]}")
-            
-            # 尋找最接近 desired_quantity 的選項
             closest_option = min(options, key=lambda x: abs(int(x.get_attribute("value")) - desired_quantity))
             select.select_by_value(closest_option.get_attribute("value"))
             print(f"選擇張數: {closest_option.text}")
-
             time.sleep(5)  # 等待選擇生效
             return True
         except Exception as e:
@@ -124,26 +115,20 @@ class TicketBot:
                 )
                 captcha_img.screenshot("captcha.png")
                 
-                # 使用 ddddocr 識別驗證碼
                 ocr = ddddocr.DdddOcr()
                 with open("captcha.png", "rb") as f:
-                    img_bytes = f.read()
-                captcha_text = ocr.classification(img_bytes)
+                    captcha_text = ocr.classification(f.read())
                 print(f"識別到的驗證碼: {captcha_text}")
                 
                 captcha_input = self.driver.find_element(By.ID, "TicketForm_verifyCode")
                 captcha_input.clear()
                 captcha_input.send_keys(captcha_text)
-                print(f"已輸入驗證碼: {captcha_text}")
                 
-                # 輸入驗證碼後，檢查是否出現錯誤提示
-                error_message = self.driver.find_elements(By.XPATH, "//div[contains(@class, 'error-message')]")
-                if not error_message:
+                if not self.driver.find_elements(By.XPATH, "//div[contains(@class, 'error-message')]"):
                     print(f"驗證碼輸入成功，嘗試次數：{attempt + 1}")
                     return True
                 else:
                     print(f"驗證碼輸入錯誤，重試中... (嘗試次數：{attempt + 1})")
-                    # 重新加載驗證碼圖片
                     self.driver.find_element(By.ID, "TicketForm_verifyCode-image").click()
                     time.sleep(2)
             except Exception as e:
@@ -152,42 +137,25 @@ class TicketBot:
         print("驗證碼輸入失敗，已達到最大嘗試次數")
         return False
 
-    def agree_terms(self):
-        return self.wait_and_click((By.ID, "TicketForm_agree"))
-
-    def confirm_ticket_quantity(self):
-        return self.wait_and_click((By.XPATH, "//button[@type='submit' and contains(@class, 'btn-primary') and contains(text(), '確認張數')]"))
-
     def agree_program_rules(self):
         try:
-            # 找到按鈕元素
             button = WebDriverWait(self.driver, 20).until(
                 EC.presence_of_element_located((By.ID, "submitButton"))
             )
-            
-            # 滾動到按鈕元素
             self.driver.execute_script("arguments[0].scrollIntoView(true);", button)
-            
-            # 等待一下，確保頁面滾動完成
             time.sleep(2)
-            
-            # 再次等待按鈕可點擊
             WebDriverWait(self.driver, 20).until(
                 EC.element_to_be_clickable((By.ID, "submitButton"))
             )
-            
-            # 使用 JavaScript 點擊按鈕
             self.driver.execute_script("arguments[0].click();", button)
             
-            # 處理可能出現的警告框
             try:
                 alert = Alert(self.driver)
-                alert_text = alert.text
-                print(f"警告框內容: {alert_text}")
+                print(f"警告框內容: {alert.text}")
                 alert.accept()
-                return False  # 返回 False 表示需要重新選擇票數
+                return False  # 需要重新選擇票數
             except:
-                pass  # 如果沒有警告框，繼續執行
+                pass
             
             print("已點擊同意節目規則按鈕")
             return True
@@ -198,17 +166,12 @@ class TicketBot:
 
     def click_buy_ticket_button(self):
         try:
-            # 嘗試找到所有可能的"立即購票"按鈕
             buttons = self.driver.find_elements(By.XPATH, "//a[contains(@href, '/activity/game/')]/div[text()='立即購票']")
-            
-            if buttons:
-                # 如果找到多個按鈕，選擇第一個可見的
-                for button in buttons:
-                    if button.is_displayed():
-                        button.click()
-                        print("成功點擊立即購票按鈕")
-                        return True
-            
+            for button in buttons:
+                if button.is_displayed():
+                    button.click()
+                    print("成功點擊立即購票按鈕")
+                    return True
             print("沒有找到可見的立即購票按鈕")
             return False
         except Exception as e:
@@ -217,17 +180,11 @@ class TicketBot:
 
     def click_first_buy_now_button(self):
         try:
-            # 嘗試找到所有的"立即訂購"按鈕
             buttons = self.driver.find_elements(By.XPATH, "//button[contains(text(), '立即訂購')]")
-            
-            if buttons:
-                # 選擇第一個"立即訂購"按鈕
-                first_button = buttons[0]
-                if first_button.is_displayed():
-                    first_button.click()
-                    print("成功點擊第一個立即訂購按鈕")
-                    return True
-            
+            if buttons and buttons[0].is_displayed():
+                buttons[0].click()
+                print("成功點擊第一個立即訂購按鈕")
+                return True
             print("沒有找到可見的立即訂購按鈕")
             return False
         except Exception as e:
@@ -238,32 +195,26 @@ class TicketBot:
         steps = [
             ("立即購票", self.click_buy_ticket_button),
             ("立即訂購", self.click_first_buy_now_button),
-            ("選擇票種", self.select_first_available_ticket),
+            ("選擇票種", lambda: self.click_ticket(self.select_best_ticket())),
+            ("選擇張數", lambda: self.select_quantity(1)),
             ("輸入驗證碼", self.input_captcha),
-            ("同意條款", self.agree_terms),
-            ("確認張數", self.confirm_ticket_quantity),
+            ("同意條款", lambda: self.wait_and_click((By.ID, "TicketForm_agree"))),
+            ("確認張數", lambda: self.wait_and_click((By.XPATH, "//button[@type='submit' and contains(@class, 'btn-primary') and contains(text(), '確認張數')]"))),
             ("同意節目規則", self.agree_program_rules),
         ]
 
         for step_name, action in steps:
             print(f"開始執行{step_name}...")
-            if callable(action):
-                success = action()
-            else:
-                success = self.wait_and_click(action)
+            success = action()
             
             if success:
                 print(f"成功執行{step_name}")
-                time.sleep(10)  # 增加等待時間到 10 秒
+                time.sleep(10)
             else:
                 if step_name == "同意節目規則" and not success:
                     print("需要重新選擇票數")
-                    # 返回選擇票種步驟
                     self.driver.back()
                     time.sleep(5)
-                    if not self.select_first_available_ticket():
-                        print("重新選擇票種失敗")
-                        return False
                     continue
                 print(f"無法執行{step_name}")
                 return False

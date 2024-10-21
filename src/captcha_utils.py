@@ -27,7 +27,7 @@ def input_captcha(driver, max_attempts=3):
             else:
                 print(f"��證碼輸入錯誤，重試中... (嘗試次數：{attempt + 1})")
                 driver.find_element(By.ID, "TicketForm_verifyCode-image").click()
-                time.sleep(2)
+                # time.sleep(2)
         except Exception as e:
             print(f"輸入驗證碼時發生錯誤: {e}")
     

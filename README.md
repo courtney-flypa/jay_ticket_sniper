@@ -34,7 +34,7 @@ chmod +x setup_venv.sh
 
 3. 運行腳本：
 ```bash
-python ticket_bot.py
+python main.py
 ```
 
 4. 腳本將自動連接到開啟的 Chrome 瀏覽器並開始執行購票流程。

@@ -6,7 +6,7 @@ def wait_and_click(driver, locator, timeout=20):
     try:
         element = WebDriverWait(driver, timeout).until(EC.element_to_be_clickable(locator))
         driver.execute_script("arguments[0].scrollIntoView(true);", element)
-        time.sleep(2)  # 等待滾動完成
+        # time.sleep(2)  # 等待滾動完成
         element.click()
         return True
     except Exception as e:

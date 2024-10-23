@@ -5,6 +5,7 @@ from selenium.webdriver.support.ui import Select
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.common.exceptions import TimeoutException, StaleElementReferenceException
 import time
+import re
 
 def select_best_ticket(driver):
     try:
@@ -13,26 +14,49 @@ def select_best_ticket(driver):
         available_tickets = driver.find_elements(By.CSS_SELECTOR, ".select_form_a a")
         print(f"找到 {len(available_tickets)} 個可選擇的票種")
 
-        ticket_info = []
-        for ticket in available_tickets:
-            ticket_text = ticket.text
-            remaining = ''.join(filter(str.isdigit, ticket_text.split('剩餘')[-1]))
-            if remaining:
-                remaining = int(remaining)
-                if remaining > 0:
-                    ticket_info.append((ticket, remaining))
-
-        if ticket_info:
-            best_ticket, max_remaining = max(ticket_info, key=lambda x: x[1])
-            ticket_name = best_ticket.text.split('剩餘')[0].strip()
-            if max_remaining > 0:
-                print(f"選擇票種: {ticket_name} (剩餘票數: {max_remaining})")
-            else:
-                print(f"選擇票種: {ticket_name}")
-            return best_ticket
-        else:
+        if not available_tickets:
             print("沒有找到可用的票種")
             return None
+
+        ticket_info = []
+
+        for ticket in available_tickets:
+            ticket_text = ticket.text
+            print(f"處理票種: {ticket_text}")
+            try:
+                # 使用正則表達式提取區域號碼和剩餘票數
+                match = re.search(r'區(\d+)\s*剩餘\s*(\d+)', ticket_text)
+                
+                if match:
+                    area_number = int(match.group(1))
+                    remaining = int(match.group(2))
+                    
+                    print(f"  解析結果 - 區域: {area_number}, 剩餘: {remaining}")
+                    
+                    if 105 <= area_number <= 121 and remaining > 0:
+                        ticket_info.append((ticket, area_number, remaining))
+                else:
+                    print(f"  無法從文本中提取區域號碼或剩餘票數")
+            except Exception as e:
+                print(f"處理票種信息時出錯: {e}")
+                continue
+
+        print(f"符合條件的票種數量: {len(ticket_info)}")
+
+        if ticket_info:
+            print("符合條件的票種:")
+            for t, a, r in ticket_info:
+                print(f"  票種: {t.text}, 區域: {a}, 剩餘: {r}")
+            # 選擇剩餘票數最多的區域
+            best_ticket = max(ticket_info, key=lambda x: x[2])
+        else:
+            print("沒有找到符合條件的票種")
+            return None
+
+        ticket, area_number, remaining = best_ticket
+        print(f"選擇票種: {ticket.text} (區域: {area_number}, 剩餘票數: {remaining})")
+        return ticket
+
     except Exception as e:
         print(f"選擇票種時發生錯誤: {e}")
         return None

@@ -33,9 +33,9 @@ class TicketBot:
     def execute_ticket_purchase(self):
         steps = [
             ("立即購票", self.click_buy_ticket_button),
-            ("立即訂購", self.click_first_buy_now_button),
+            ("立即訂購", self.click_second_buy_now_button),
             ("選擇票種", lambda: click_ticket(self.driver, select_best_ticket(self.driver))),
-            ("選擇張數", lambda: select_quantity(self.driver, 1)),
+            ("選擇張數", lambda: select_quantity(self.driver, 2)),
             ("輸入驗證碼", lambda: input_captcha(self.driver)),
             ("同意條款", lambda: wait_and_click(self.driver, (By.ID, "TicketForm_agree"))),
             ("確認張數", lambda: wait_and_click(self.driver, (By.XPATH, "//button[@type='submit' and contains(@class, 'btn-primary') and contains(text(), '確認張數')]"))),
@@ -66,7 +66,18 @@ class TicketBot:
         return True
 
     def click_buy_ticket_button(self):
-        return wait_and_click(self.driver, (By.XPATH, "//a[contains(@href, '/activity/game/')]/div[text()='立即購票']"))
+        try:
+            button = WebDriverWait(self.driver, 20).until(
+                EC.presence_of_element_located((By.XPATH, "//a[contains(@href, '/activity/game/')]/div[text()='立即購票']"))
+            )
+            self.driver.execute_script("arguments[0].scrollIntoView(true);", button)
+            time.sleep(1)  # 等待滾動完成
+            self.driver.execute_script("arguments[0].click();", button)
+            print("已點擊立即購票按鈕")
+            return True
+        except Exception as e:
+            print(f"點擊立即購票按鈕時發生錯誤: {e}")
+            return False
 
     def click_first_buy_now_button(self):
         return wait_and_click(self.driver, (By.XPATH, "//button[contains(text(), '立即訂購')]"))
@@ -125,3 +136,29 @@ class TicketBot:
         print("無法找到或點擊同意節目規則按鈕")
         save_error_screenshot(self.driver)
         return False
+
+    def click_second_buy_now_button(self):
+        try:
+            # 等待所有"立即訂購"按鈕出現
+            WebDriverWait(self.driver, 30).until(
+                EC.presence_of_all_elements_located((By.XPATH, "//button[contains(text(), '立即訂購')]"))
+            )
+            
+            # 找到所有"立即訂購"按鈕
+            buy_now_buttons = self.driver.find_elements(By.XPATH, "//button[contains(text(), '立即訂購')]")
+            
+            # 確保至少有兩個按鈕
+            if len(buy_now_buttons) >= 2:
+                # 點擊第二個按鈕
+                second_button = buy_now_buttons[1]
+                self.driver.execute_script("arguments[0].scrollIntoView(true);", second_button)
+                time.sleep(1)  # 等待滾動完成
+                self.driver.execute_script("arguments[0].click();", second_button)
+                print("已點擊第二個立即訂購按鈕")
+                return True
+            else:
+                print(f"找到的立即訂購按鈕數量不足，當前數量：{len(buy_now_buttons)}")
+                return False
+        except Exception as e:
+            print(f"點擊第二個立即訂購按鈕時發生錯誤: {e}")
+            return False
